@@ -1,0 +1,134 @@
+---
+title: "week 6"
+author: "Boaz"
+date: "2024-11-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load packages
+```{r load packages}
+library(tidyverse)
+library(dplyr)
+```
+
+Let's read in data
+```{r}
+prom <- read.csv("Hip Replacement CCG 1819.csv")
+glimpse(prom)
+```
+
+Exercise 1:
+Now we select variables of interest for this practical
+```{r}
+eq5d <- prom %>% select("Gender", "Pre.Op.Q.EQ5D.Index", "Post.Op.Q.EQ5D.Index")
+head(eq5d, 10)
+
+```
+
+Data cleaning: 
+
+rename colomns
+
+```{r}
+eq5d <- eq5d %>% rename(Pre_op_eq5d_index = "Pre.Op.Q.EQ5D.Index", 
+                Post_op_eq5d_index = "Post.Op.Q.EQ5D.Index" )
+```
+
+
+The colomn Gender have some * which does not make sense, I prefer to remove those rows
+```{r}
+eq5d$Gender %>% unique()
+eq5d$Gender %>% table()
+
+eq5d_gender_nona <- eq5d %>% filter(Gender != "*")
+
+head(eq5d_gender_nona, 20)
+```
+
+Let's recode this
+```{r}
+eq5d_gender_nona <- eq5d_gender_nona %>% 
+    mutate(Gender = ifelse(Gender == 1, "Male", "Female"))
+
+
+head(eq5d_gender_nona, 20)
+
+```
+
+tidy data
+```{r}
+eq5d_gender_nona_longer <- eq5d_gender_nona %>% pivot_longer(c(Pre_op_eq5d_index, Post_op_eq5d_index),
+                                  names_to = "Time",
+                                  values_to = "Q.eq5d")
+eq5d_gender_nona_longer <- eq5d_gender_nona_longer %>% 
+    mutate(Time = ifelse(Time == "Pre_op_eq5d_index", "Pre_op", "Post_op"))
+
+eq5d_gender_nona_longer$Time <- factor(eq5d_gender_nona_longer$Time, levels = c("Pre_op", "Post_op"))
+
+head(eq5d_gender_nona_longer, 10)
+```
+
+
+Plot 'EQ-5D Index' scores pre and post operation for each gender
+```{r}
+eq5d_gender_nona_longer %>% drop_na(Q.eq5d) %>% 
+    ggplot(aes(Gender)) +
+    geom_bar(aes(fill = Gender))
+
+eq5d_gender_nona_longer %>% drop_na(Q.eq5d) %>% 
+    ggplot(aes(Time, Q.eq5d)) +
+    geom_col(aes(fill = Gender), width = 0.8) + 
+    theme_minimal()
+    
+eq5d_gender_nona_longer %>% drop_na(Q.eq5d) %>% 
+    ggplot(aes(Time, Q.eq5d)) +
+    geom_boxplot(aes(fill = Gender), width = 0.8) + 
+    theme_minimal()
+
+eq5d_gender_nona_longer %>% drop_na(Q.eq5d) %>% 
+    ggplot(aes(Time, Q.eq5d)) +
+    geom_boxplot(width = 0.8) + 
+    theme_minimal()
+```
+Assumption check 
+Summary stats and histogram
+```{r}
+summary_stat <- eq5d_gender_nona_longer %>% drop_na(Q.eq5d) %>% 
+    group_by(Time) %>% summarise(mean(Q.eq5d), 
+                                 sd(Q.eq5d), 
+                                 quantile(Q.eq5d, probs = c(0.25)),
+                                 median(Q.eq5d),
+                                 quantile(Q.eq5d, probs = c(0.75)),
+                                 )
+summary_stat
+
+gather(summary_stat, key = "Time", value = "value", "mean(Q.eq5d)","sd(Q.eq5d)", 
+                                 "quantile(Q.eq5d, probs = c(0.25))",
+                                 "median(Q.eq5d)",
+                                 "quantile(Q.eq5d, probs = c(0.75))")
+
+
+eq5d_gender_nona$d <-  eq5d_gender_nona$Post_op_eq5d_index - eq5d_gender_nona$Pre_op_eq5d_index
+head(eq5d_gender_nona)
+
+# histogram
+eq5d_gender_nona %>% drop_na(d) %>% 
+    ggplot(aes(d)) +
+    geom_histogram()
+```
+
+The appropriate statistic test is the Wilcoxon test
+
+H0 : There is no change in quality of life after hip operation or There is no difference in distribution of differences between quality of life before and after hip operation.
+```{r}
+
+wilcox.test(eq5d_gender_nona$Pre_op_eq5d_index, eq5d_gender_nona$Post_op_eq5d_index, paired = TRUE, conf.int = 0.95)
+
+
+```
+
+

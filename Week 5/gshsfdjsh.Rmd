@@ -1,0 +1,51 @@
+---
+title: "week 5 tutorial"
+RQ: "HBXJABBANAJNKNK"
+author: "Boaz"
+date: "2024-11-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Load packages
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+Load in data
+```{r}
+fev.dataset <- read.csv("fev.csv")
+```
+
+#Data visualisation
+```{r}
+fev.dataset
+head(fev.dataset, 20)
+summary(fev.dataset)
+str(fev.dataset)
+```
+#Change sex and smoke in categorical form
+```{r}
+fev.dataset$sex <- factor(fev.dataset$sex, levels = c(0, 1), labels = c("Male", "Female"))
+
+table(fev.dataset$smoke)
+fev.dataset$smoke <- factor(fev.dataset$smoke, levels = c(0, 1), labels = c("Non-smoker", "Smoker"))
+
+head(fev.dataset)
+```
+Select age, height and sex
+```{r}
+select(fev.dataset, age, fev, height, sex, smoke) %>%  
+    ggplot(aes(sex, height)) +
+    geom_boxplot(aes(fill = smoke))
+'```
+
+
+
+
+
