@@ -1,0 +1,372 @@
+---
+title: 'IHDS Assessment 2: Report'
+author: "Boaz Baliesima Baliejukia"
+date: "2024-11-24"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cran mirror, include=FALSE}
+options(repos = c(CRAN = "https://cran.r-project.org"))
+```
+
+# Research topic: 
+
+Analysing trends and variations in emergency department activities across Scottish health boards: an analysis of patient attendance, waiting time, and hospitalisations (2015-2023).
+
+# Introduction
+
+The emergency department (ED) is a vital component of healthcare systems and one of the most important wards in a hospital, providing immediate clinical and paraclinical care to individuals injured in accidents and incidents (Ajami et al., 2012). The primary duty of the emergency department is to provide medical attention in high-risk situations. Seconds and minutes matter greatly for patients in the ED. These periods could determine how long it takes for someone to pass away, become seriously disabled, or survive (Ajami et al., 2012; Spechbach et al., 2019). 
+However, one of the key components of healthcare management is the length of time patients must wait in the emergency room. This is among the variables that determine patient satisfaction and one of the metrics used to assess the quality of emergency services (Spechbach et al., 2019). 
+In the United Kingdom, the goal for all member states is that for 95% of patients to be admitted, released, or moved from A&E departments in less than four hours. This is regarded as a safety target, supported by data showing worse outcomes after prolonged waits of more than 6–12 hours (Royal College of Emergency Medicine (RCEM), 2021). 
+
+Prior to the COVID-19 outbreak, Scottish EDs appeared to already be experiencing high patient attendance rates, leading to increased pressure on resources and staff. There were concerns about long waiting times, with many patients waiting beyond the four-hour target (RCEM, 2021). At the onset of the pandemic, there was a significant drop in ED attendances as people avoided hospitals due to fear of infection (Mulholland et al., 2020). 
+
+After lockdown measures were lifted, there was a sudden surge in ED attendances, overwhelming the system and leading to longer waiting times. Implementing COVID-19 infection control measures strained resources further, as additional space and staff were needed to manage both COVID-19 and non-COVID-19 patients. Many healthcare staff were redeployed to manage COVID-19 cases, reducing the workforce available for other emergency care (Scottish Government, 2022). 
+
+Post-COVID-19, there seems to be persistent high attendance. Indeed, attendance rates have returned to pre-pandemic levels or even higher, continuing to put pressure on EDs. Waiting times appear to have increased, with a significant number of patients waiting beyond the four-hour target, according to the RCEM (2021). Therefore, evaluating activities within EDs, including patient attendance, waiting times, and hospitalisations across the 14 Scottish health boards, offers valuable insights into healthcare performance and resource allocation. This study aims to analyse these factors across Scottish health boards over a nine-year period from 2015 to 2023, identifying trends, disparities, and potential areas for improvement.\vspace{2cm}
+
+To achieve our research objectives, we have outlined two specific aims:
+
+-  *Specific aim 1*: Evaluate trends in waiting times and patient attendance in emergency departments across Scottish Health Boards from 2015 to 2023 and their impact on overall healthcare performance and patient outcomes.
+
+-  *Specific Aim 2*: Identify  variations in emergency hospitalisations across different Scottish health boards over years.\vspace{0.5cm}
+
+# Data handling and visualisation in R 
+
+## Load packages
+\vspace{0.5cm}
+```{r load-packages, message=FALSE}
+library(tidyverse)
+library(viridis)      # For pretty color scales in our graphs.
+library(hrbrthemes)   # For additional themes, theme components, and utilities for ggplot.
+library(showtext)     # For custom fonts in our graphs.
+library(grid)         # For  complex layouts in our plots
+library(ggiraph)      # For custom annotations
+```
+
+## Setting up fonts
+
+To enhance the visual appeal of our graphs, we add some custom fonts with the package "showtext". 
+Custom fonts are added with the function font_add(), then called with showtext_auto().
+\vspace{0.5cm}
+```{r adding fonts}
+font_add(family = "MarkerFelt", regular ="/Library/Fonts/MarkerFelt.ttc")
+font_add(family = "AmericanTypewriter", 
+         regular ="/Library/Fonts/Supplemental/AmericanTypewriter.ttc")
+font_add(family = "Charter", 
+         regular ="/Library/Fonts/Supplemental/Charter.ttc")
+font_add(family = "Arial Rounded Bold", 
+         regular ="/Library/Fonts/Supplemental/Arial Rounded Bold.ttf")
+showtext_auto()
+```
+
+## Loading the data
+
+Our datasets are loaded directly from our project folder.
+
+The first dataset is from the Scottish Public Health Observatory (ScotPHO) website. It includes yearly emergency patient hospitalisations (Age-sex standardised rate per 100,000) registered from 2003 to 2021 in Scottish health boards (ScotPHO profiles, 2024). The name **hospitalisation** was assigned to this dataset.
+
+The second dataset is from the Public Health Scotland NHS Performs website, providing weekly updates on emergency department activity and waiting time statistics from 2015 to 2023 (Public Health Scotland, 2023). 
+The name **performs** was assigned to this one.
+
+The data is saved in csv files, so we will use the read.csv() function.
+\vspace{0.5cm}
+```{r import-data, message=FALSE}
+hospitalisation <- read_csv("ScotPHO.csv")
+performs <- read_csv("NHS Performs.csv")
+```
+
+## Inspection of data
+
+We will inspect data with head(), glimpse() and summary() functions to get an idea of the data we are dealing with.
+\vspace{0.5cm}
+```{r data-inspection}
+head(performs, 10)
+glimpse(performs)
+summary(performs)
+
+head(hospitalisation, 10)
+glimpse(hospitalisation)
+summary(hospitalisation)
+```
+\vspace{0.5cm}
+Both datasets seem to be clean, with no missing data. However, we just noticed that the time is in a full date format in the  dataset called performs while it is in year in the one called hospitalisation. We can then go to the next steps. 
+\vspace{0.5cm}
+
+## Data visualisation
+
+#### Specific aim 1: Evaluate trends in waiting times and patient attendance in emergency departments across Scottish Health Boards from 2015 to 2023 and their impact on overall healthcare performance and patient outcomes.
+
+Bar graph of waiting time (4 hours) in 2023
+
+Let's plot a bar chart showing the Emergency Department attendances that were seen and resulted in a subsequent admission, transfer or discharge within 4 hours in 2023.
+
+We will first create a summary table called **median_waiting** with the median of the column *percentage_within_4_hours* for each NHS_board in 2023 from the "performs" dataset. Then, we will plot a bar chart that includes a vertical line indicating the **national standard** for Accident & Emergency (A&E) services in the UK, which has been set at **95%** since 2007. This standard means that 95% of patients should wait no longer than 4 hours from their arrival to either admission, discharge, or transfer in A&E (Public Health Scotland, 2023). 
+\vspace{0.5cm}
+```{r}
+# compute median of percentage_within_4_hours first
+median_waiting <- performs %>% 
+  filter(format(week_ending_date, "%Y") == "2023") %>% 
+  group_by(nhs_board_name) %>% 
+  summarise(median = median(percentage_within_4_hours))
+
+# Let's plot a bar graph
+bar_waiting <- median_waiting %>% 
+  ggplot(aes(reorder(nhs_board_name, median), median, fill = nhs_board_name)) +
+  geom_col(width = 0.7 , alpha = 0.7) +
+  scale_fill_manual(values = viridis(15)) +
+  geom_hline_interactive(aes(yintercept = 95), color = "orange", size = 1) +
+  coord_flip() +
+  
+# let's customize layout now 
+  theme_classic() +
+  
+  labs(x = "NHS boards", 
+         y = "Patients seen within 4 hours (%)", 
+         title = "Scottish ED performance",
+         subtitle = "ED attendances seen within 4 hours in 2023 VS national standard (95%)") +
+  
+  theme(legend.position = "none",
+        axis.title.x = element_text(margin = margin(t = 10)),
+        axis.title.y = element_text(margin = margin(t = 20)),
+        plot.title = element_text(family = "Arial Rounded Bold",
+                                  face = "bold",
+                                  size = 16),
+        plot.subtitle = element_text(family = "Arial Rounded Bold",
+                                     size = 11),
+        panel.grid.major.x = element_line(color = "gray", linewidth = 0.1),
+        text = element_text(family = "Arial Rounded Bold"),
+        axis.line.x.bottom = element_blank(),
+        axis.ticks.length = unit(0, "mm"),
+        axis.text.y = element_blank(),
+        axis.text.x = element_text(size = 11, 
+                                   family = "MarkerFelt", 
+                                   margin = margin(r = 10))) +
+  
+  scale_y_continuous(expand = c(0, 0),
+                       limits = c(0, 101),
+                       breaks = seq(0, 100, by = 10)) +
+    
+  geom_text(aes(nhs_board_name, label = nhs_board_name), 
+              hjust = 1, 
+              family = "Charter",
+              size = 4) +
+  
+# We are now adding up some annotations   
+  annotate(geom = "label",
+           x = 7.5,
+           y = 95,
+           label = "95%",
+           family = "MarkerFelt", colour = "orange") +
+  
+  theme(plot.margin = margin(0.05, 0.02, 0.05, 0.03, "npc")) # specifies the margins around the plot
+
+bar_waiting
+
+# Let's add a black line at the top of the graph to make it look cool.
+grid.lines(x = c(0, 4), y = 1, 
+           gp = gpar(col = "black", lwd = 3))
+grid.rect(x = 0, y = 1, width = 0.05, height = 0.025, 
+          just = c("left", "top"), gp = gpar(fill = "black", lwd = 0))
+ 
+```
+
+
+
+
+\vspace{1cm}
+In the previous graph, it can be observed that only the **NHS Western Isles** health board achieved the goal of 95% of patients being seen within 4 hours, while **NHS Forth Valley** failed to reach even 50%. 
+
+Next, let's create a line graph to illustrate the trend of emergency department (ED) attendances over the years from 2015 to 2023 for both the *NHS Western Isles* and *NHS Forth Valley* health boards. \vspace{1cm}
+
+
+
+```{r}
+
+BLUE <- "#076fa2"
+GREEN <- "#01796F" # Define the colors we will be using.
+
+line.graph <- performs %>% 
+  filter(nhs_board_name %in% c("NHS Western Isles", "NHS Forth Valley")) %>% 
+  group_by(nhs_board_name, week_ending_date) %>%
+  ggplot(aes(week_ending_date, attendance, color = nhs_board_name)) +
+  geom_line() +
+  scale_color_manual(values = c(BLUE, GREEN)) +
+  
+# let's customise the layout now  
+  theme_classic() +
+  labs(title = "NHS Western Isles vs NHS Forth Valley", 
+       subtitle = "Weekly ED attendances from 2015 to 2023",
+       x = "Time (years)",
+       y = "Weekly attendances") +
+  theme(text = element_text(family = "Arial Rounded Bold"),
+        legend.position = "none",
+        panel.grid.major.x = element_line(color = "gray", linewidth  = 0.1, linetype = "dashed"),
+        panel.grid.major.y = element_line(color = "gray", linewidth  = 0.1, linetype = "dashed"),
+        plot.title = element_text(face = "bold",
+                                  size = 16, color = "red"),
+        plot.subtitle = element_text(size = 11),
+        
+        axis.title.x = element_text(margin = margin(t = 10)),
+        axis.title.y = element_text(margin = margin(t = 20)),
+        axis.text.x = element_text(size = 11, family = "MarkerFelt", margin = margin(r = 1)),
+        axis.text.y = element_text(size = 11, family = "MarkerFelt", margin = margin(r = 1)),
+        scale_y_continuous(expand = c(0, 0),
+                       limits = c(0, 203),
+                       breaks = seq(0, 200, by = 25)),
+        axis.line = element_line(arrow = arrow(length = unit(0.2, "cm"), type = "closed" ))) +
+  
+# We are now adding up some annotations  
+  annotate(geom = "rect",
+           xmin = as.Date("2020-03-01"), xmax = as.Date("2021-01-31"),
+                 ymin = 0, ymax = 1500,
+                 fill = "white", alpha = 0.1,
+           colour = "black") +
+  annotate(geom = "text",
+           x = as.Date("2020-11-01"),
+           y = 1550,
+           label = "Lockdown Mar20-Jan21",
+           family = "MarkerFelt") +
+  annotate(geom = "label",
+           x = as.Date("2017-01-01"),
+           y = 925,
+           label = "NHS Western Isles",
+           family = "MarkerFelt",
+           colour = BLUE) +
+  annotate(geom = "label",
+           x = as.Date("2017-01-01"),
+           y = 300,
+           label = "NHS Forth Valley",
+           family = "MarkerFelt",
+           colour = GREEN) +
+  theme(plot.margin = margin(0.05, 0.02, 0.05, 0.03, "npc")) # specifies the margins around the plot
+ 
+line.graph 
+
+# Let's add a black line at the top of the graph to make it look cool.
+grid.lines(x = c(0, 4), y = 1, 
+           gp = gpar(col = "black", lwd = 3))
+grid.rect(x = 0, y = 1, width = 0.05, height = 0.025, 
+          just = c("left", "top"), gp = gpar(fill = "black", lwd = 0))        
+```
+
+\vspace{1cm}
+## Specific Aim 2: Identify  variations in emergency hospitalisations across different Scottish health boards over years.
+ 
+\vspace{0.5cm}
+**We are comparing emergency hospitalisations across all Scottish health boards in 2015 and 2021.**
+\vspace{0.5cm}
+
+First, let's calculate the average emergency hospitalisations for each Scottish NHS board from the **hospitalisation** dataset annually and create a summary table called *mean_hosp*.
+\vspace{0.5cm}
+```{r, message=FALSE}
+mean_hosp <- hospitalisation %>% 
+    group_by(year, area_name) %>% 
+    summarise(mean_hospitalisation = mean(measure))
+
+mean_hosp %>% head()
+```
+\vspace{0.5cm}
+Let's plot a bar chart comparing ED hospitalisation in 2015 and 2021 across Scottish Health Boards and call it *bar_hosp*.
+\vspace{0.5cm}
+```{r}
+
+bar_hosp <- mean_hosp %>% 
+  filter(year %in% c(2015, 2021)) %>% 
+  ggplot(aes(reorder(area_name, mean_hospitalisation), mean_hospitalisation, fill = as.factor(year))) + 
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  scale_fill_manual(values = viridis(4)) +
+
+# let's customise the layout now     
+  theme_classic() +
+  labs(y = "Rate (/100,000 pop.)", 
+       title = "Scottish health boards",
+       subtitle = "ED hospitalisation age-sex standardised rate registered in 2015 and 2021",
+       fill = "Years") +
+  xlab(element_blank()) +
+  theme(legend.position = "right", 
+        legend.title = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(angle = 34, hjust = 1,       #rotate group names
+                                   size = 11, 
+                                   family = "MarkerFelt", 
+                                   margin = margin(r = 10)),   
+        axis.title.x = element_text(margin = margin(t = 10)),
+        axis.title.y = element_text(margin = margin(t = 20)),
+        plot.title = element_text(family = "Arial Rounded Bold",
+                                  face = "bold",
+                                  size = 16, colour = "red"),
+        plot.subtitle = element_text(family = "Arial Rounded Bold",
+                                     size = 11),
+        panel.grid.major.y = element_line(color = "gray", 
+                                          linewidth = 0.3), 
+        text = element_text(family = "Arial Rounded Bold"),
+        plot.margin = margin(0.05, 0, 0, 0.015, "npc")) +   # specifies the margins around the plot     
+
+  scale_y_continuous(expand = c(0, 0),
+                       limits = c(0, 10000),  
+                       breaks = seq(0, 10000, by = 2000))   # Set y-axis scale
+
+bar_hosp
+
+# Let's add a black line at the top of the graph to make it look cool.
+grid.lines(x = c(0, 4), 
+           y = 1, 
+           gp = gpar(col = "black", 
+                     lwd = 3))
+grid.rect(x = 0, y = 1, width = 0.05, height = 0.025, 
+          just = c("left", "top"), gp = gpar(fill = "black", lwd = 0))
+
+```
+
+\vspace{20cm}
+# Summary
+
+Our target audience includes Public Health officers, hospital managers, and emergency department heads. These stakeholders can utilise the data to enhance patient flow, reduce waiting times, and improve overall hospital efficiency. Additionally, Public Health officers can analyse the data to identify trends, find areas needing improvement in ED organisation, and develop strategies to address public health challenges.
+
+The primary objective of our graphs is to illustrate the performance of Emergency Departments in NHS Scotland health boards relative to the national standard, which mandates that 95% of patients should wait no longer than 4 hours from arrival to admission, discharge, or transfer for A&E treatment (Public Health Scotland, 2023).
+
+To create our visualisations, we utilised two datasets:
+
+-  Scottish Public Health Observatory (ScotPHO) Dataset: This dataset includes yearly emergency patient hospitalisations from 2003 to 2021 across Scottish health boards. It was selected by choosing 'health board' as the dataset type, 'health and well-being' as the profile, and 'emergency patient hospitalisations' as the indicator, covering all years of interest (ScotPHO profiles, 2024).
+
+-  Public Health Scotland Dataset: This dataset provides weekly updates on emergency department activity and waiting time statistics from 2015 to 2023 (Public Health Scotland, 2023).
+
+**Data limitations**
+
+-  The datasets originate from two different organisations, potentially leading to variations in data collection methods.
+-  The NHS Performs dataset collects data weekly from 2015 to 2023, whereas the ScotPHO dataset provides yearly data, presented as a 3-year rolling average and age-sex standardised rate per 100,000 population.
+-  The data is not at the population level, making individual-level conclusions challenging.
+
+**Strengths and limitations of our approach**
+
+Our visualisation approach has both strengths and limitations. Bar graphs allowed us to compare emergency waiting times of less than 4 hours and hospitalisations across all NHS Scotland Health boards for specific years. However, comparing more than two years proved challenging.
+Using bar graphs, we highlighted the Emergency Department attendance trend in NHS Western Isles, the only health board where over 95% of patients waited no longer than 4 hours from arrival to admission, discharge, or transfer for A&E treatment. However, presenting trends for all 14 health boards in a single plot was not feasible. While multiple grids or wrapped plots were considered, they were not suitable for such a large number of categories (health boards).
+
+**Conclusion**
+
+Emergency Departments in NHS Scotland Health boards need significant performance improvements, as only one health board meets the UK national standard of 95%. Additionally, there has been a notable decrease in ED admissions in NHS Western Isles since the COVID-19 outbreak compared to the pre-COVID period. However, the current ED hospitalisation rate in NHS Western Isles appears similar to pre-COVID levels.
+
+
+\vspace{20cm}
+# References
+
+Ajami, S. et al. (2012) ‘Wait Time in Emergency Department (ED) Processes’, 66(1), pp. 53–57. Available at: https://doi.org/10.5455/medarh.2012.66.53-57.
+
+Mulholland, R.H. et al. (2020) ‘Impact of COVID-19 on accident and emergency attendances and emergency and planned hospital admissions in Scotland: an interrupted time-series analysis’, Journal of the Royal Society of Medicine, 113(11), pp. 444–453. Available at: https://doi.org/10.1177/0141076820962447.
+
+Public Health Scotland (2023) NHS Performs - weekly update of emergency department activity and waiting time statistics. Available at: https://publichealthscotland.scot/publications/nhs-performs-weekly-update-of-emergency-department-activity-and-waiting-time-statistics/nhs-performs-weekly-update-of-emergency-department-activity-and-waiting-time-statistics-week-ending-30-april-2023/ (Accessed: 21 October 2024).
+
+RCEM (2021) Emergency Departments in Scotland experience worst ever May performance. Available at: https://rcem.ac.uk/rcem-we-have-a-serious-problem-in-urgent-emergency-care/ (Accessed: 21 October 2024).
+
+Royal College of Emergency Medicine (2021) ‘Delayed hospital handovers: Impact assessment of patient harm’.
+ScotPHO profiles (2024). Available at: https://scotland.shinyapps.io/ScotPHO_profiles_tool/ (Accessed: 21 October 2024).
+
+Scottish Government (2022) Coronavirus (COVID-19) Scotland’s Strategic Framework update – February 2022: evidence paper. Available at: https://www.gov.scot/publications/evidence-paper-accompany-coronavirus-covid-19-scotlands-strategic-framework-update-february-2022/pages/3/ (Accessed: 21 October 2024).
+
+Spechbach, H. et al. (2019) ‘Patients’ time perception in the waiting room of an ambulatory emergency unit: a cross-sectional study’, BMC Emergency Medicine, 19(1), p. 41. Available at: https://doi.org/10.1186/S12873-019-0254-1.
