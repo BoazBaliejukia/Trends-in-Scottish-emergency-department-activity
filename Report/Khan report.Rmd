@@ -1,0 +1,240 @@
+---
+title: "Emergency department hospitalisation rates in Scotland: identifying the highest-burden Health Board and its recent trend (2003–2022)"
+author: "Abdul Sameeh Khan"
+date: "2025-11-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Emergency departments (EDs) play a crucial role in health systems, providing urgent care for individuals in critical or life-threatening conditions (Ajami et al., 2012). The number of hospitalisations originating from EDs is a valuable indicator of both healthcare demand and system capacity (Spechbach et al., 2019). King et al. (2023) observed a fivefold variation in short-stay paediatric hospital admission rates across Scottish health board areas and found higher rates in more deprived communities, suggesting population health and access differences contribute to variation. 
+Over the past decade, Scottish EDs have faced significant challenges, including rising patient loads, resource constraints, and disruptions caused by COVID-19 pandemic. During the early stages of the pandemic, ED activity dropped sharply as people avoided hospitals; however, subsequent surges in attendance placed renewed strain on emergency services and hospital capacity (Mulholland et al., 2020; Scottish Government, 2022). Understanding how ED hospitalisation patterns evolved during this period is therefore essential for guiding public health planning and policy decisions. 
+This project aims to explore the trends and geographical variation in emergency department hospitalisations across Scotland’s 14 Health Boards between 2003 and 2022. By visualising these data spatially and temporally, the analysis seeks to highlight potential disparities and identify areas requiring targeted interventions.
+
+## Research Question
+
+Which Scottish Health Board had the highest age–sex standardised emergency patient hospitalisation rate in 2022, and how has this rate changed in that Health Board between 2003 and 2022?
+
+## Data handling and visualisation 
+
+### Load packages
+\vspace{0.5cm}
+```{r load-packages, message=FALSE}
+library(tidyverse)
+library(viridis)      # For pretty color scales in our graphs.
+library(hrbrthemes)   # For additional themes, theme components, and utilities for ggplot.
+library(showtext)     # For custom fonts in our graphs.
+library(grid)         # For  complex layouts in our plots
+library(ggiraph)      # For custom annotations
+```
+
+### Setting up fonts
+
+To enhance the visual appeal of our graphs, we add some custom fonts with the package "showtext". 
+Custom fonts are added with the function font_add(), then called with showtext_auto().
+\vspace{0.5cm}
+```{r adding fonts}
+font_add(family = "MarkerFelt", regular ="/Library/Fonts/MarkerFelt.ttc")
+font_add(family = "AmericanTypewriter", 
+         regular ="/Library/Fonts/Supplemental/AmericanTypewriter.ttc")
+font_add(family = "Charter", 
+         regular ="/Library/Fonts/Supplemental/Charter.ttc")
+font_add(family = "Arial Rounded Bold", 
+         regular ="/Library/Fonts/Supplemental/Arial Rounded Bold.ttf")
+showtext_auto()
+```
+
+### Loading data
+
+Our dataset is loaded directly from our project folder.
+
+The dataset is from the Scottish Public Health Observatory (ScotPHO) website. It includes yearly emergency patient hospitalisations (Age-sex standardised rate per 100,000) registered from 2003 to 2022 in Scottish health boards (ScotPHO profiles, 2025). The name **hospitalisation** was assigned to this dataset.
+
+
+
+The data is saved in csv files, so we will use the read.csv() function.
+\vspace{0.5cm}
+```{r import-data, message=FALSE}
+hospitalisation <- read_csv("ScotPHO_datatab_2025.csv")
+
+```
+
+### Data inspection
+
+We will inspect data with head(), glimpse() and summary() functions to get an idea of the data we are dealing with.
+\vspace{0.5cm}
+```{r data-inspection}
+
+head(hospitalisation, 5)
+glimpse(hospitalisation)
+summary(hospitalisation)
+```
+\vspace{0.5cm}
+The inspection confirms that the data are properly structured, consistently reported for every Health Board, and contain no missing values. We can then go to the next steps. 
+\vspace{0.5cm}
+
+### Data visualisation
+
+\vspace{1cm}
+#### Which Health Board had the highest emergency hospitalisation rate in 2022?
+ 
+\vspace{0.5cm}
+**We are comparing emergency hospitalisations across all Scottish health boards in 2022.**
+\vspace{0.5cm}
+
+First, let's calculate the average emergency hospitalisations for each Scottish NHS board from the **hospitalisation** dataset annually and create a summary table called *mean_hosp*.
+\vspace{0.5cm}
+```{r, message=FALSE}
+mean_hosp <- hospitalisation %>% 
+    group_by(year, area_name) %>% 
+    summarise(mean_hospitalisation = mean(measure))
+
+mean_hosp %>% head()
+```
+\vspace{0.5cm}
+Let's plot a bar chart comparing ED hospitalisation in 2003 and 2022 across Scottish Health Boards and call it *bar_hosp*.
+\vspace{0.5cm}
+```{r}
+
+bar_hosp <- mean_hosp %>% 
+    filter(year == 2022) %>% 
+  ggplot(aes(reorder(area_name, mean_hospitalisation), mean_hospitalisation)) + 
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+    coord_flip() +
+
+# let's customise the layout now     
+  theme_classic() +
+  labs(y = "Rate (/100,000 pop.)", 
+       title = "Scottish health boards",
+       subtitle = "ED hospitalisation age-sex standardised rate 
+registered in 2022",
+       fill = "Years") +
+  xlab(element_blank()) +
+  theme(legend.position = "right", 
+        legend.title = element_text(size = 10, face = "bold"),
+        axis.text.x = element_text(hjust = 1,       #rotate group names
+                                   size = 11, 
+                                   family = "MarkerFelt", 
+                                   margin = margin(r = 10)),   
+        axis.title.x = element_text(margin = margin(t = 10)),
+        axis.title.y = element_text(margin = margin(t = 20)),
+        plot.title = element_text(family = "Arial Rounded Bold",
+                                  face = "bold",
+                                  size = 16, colour = "red"),
+        plot.subtitle = element_text(family = "Arial Rounded Bold",
+                                     size = 11),
+        panel.grid.major.x = element_line(color = "gray", 
+                                          linewidth = 0.3), 
+        text = element_text(family = "Arial Rounded Bold")) +
+        
+  scale_y_continuous(expand = c(0, 0),
+                       limits = c(0, 10000),  
+                       breaks = seq(0, 10000, by = 2000))   # Set y-axis scale
+
+bar_hosp
+
+```
+
+The bar graph compares age–sex standardised emergency patient hospitalisation rates across all Scottish Health Boards in 2022. NHS Ayrshire & Arran has the highest rate, indicating that it carries the greatest burden of ED-related hospitalisations in that year, while island boards such as NHS Orkney and NHS Shetland have substantially lower rates. 
+
+
+#### Let's compare how the rates actually changed through years between NHS Ayrshire & Arran and NHS Orkney
+
+.
+```{r}
+
+BLUE <- "#076fa2"
+GREEN <- "#01796F" # Define the colors we will be using.
+
+#line.graph <- 
+
+hospitalisation %>% 
+  filter(area_name %in% c("NHS Ayrshire & Arran", "NHS Orkney")) %>% 
+  
+  ggplot(aes(year, measure, color = area_name)) +
+  geom_line()  +
+  scale_color_manual(values = c(BLUE, GREEN)) +
+  
+# let's customise the layout now  
+  theme_classic() +
+  labs(title = "NHS Ayrshire & Arran vs NHS Orkney", 
+       subtitle = "Trend of Emergency Hospitalisation from 2003 to 2022",
+       x = "Time (years)",
+       y = "ED Hospitalisations") +
+  theme(text = element_text(family = "Arial Rounded Bold"),
+        legend.position = "none",
+        panel.grid.major.x = element_line(color = "gray", linewidth  = 0.1, linetype = "dashed"),
+        panel.grid.major.y = element_line(color = "gray", linewidth  = 0.1, linetype = "dashed"),
+        plot.title = element_text(face = "bold",
+                                  size = 16, color = GREEN),
+        plot.subtitle = element_text(size = 11),
+        
+        axis.title.x = element_text(margin = margin(t = 10)),
+        axis.title.y = element_text(margin = margin(t = 20)),
+        axis.text.x = element_text(size = 11, family = "MarkerFelt", margin = margin(r = 1)),
+        axis.text.y = element_text(size = 11, family = "MarkerFelt", margin = margin(r = 1)),
+        
+        axis.line = element_line(arrow = arrow(length = unit(0.2, "cm"), type = "closed" ))) +
+  
+# We are now adding up some annotations  
+ 
+  annotate(geom = "label",
+           x = 2013,
+           y = 8700,
+           label = "NHS Ayrshire & Arran",
+           family = "MarkerFelt",
+           colour = BLUE) +
+  annotate(geom = "label",
+           x = 2009,
+           y = 6560,
+           label = "NHS Orkney",
+           family = "MarkerFelt",
+           colour = GREEN)      
+```
+
+
+\vspace{0.5cm}
+
+NHS Ayrshire & Arran shows a steady and sustained increase in emergency hospitalisation rates from the early 2000s through to around 2018–2019, where it reaches a peak of approximately 10,000 attendances. After this peak, the rate declines notably around 2020–2021, likely reflecting the impact of the COVID-19 pandemic on service use, before showing signs of slight recovery toward 2022.
+
+In contrast, NHS Orkney Health Board displays much lower and declining hospitalisation rates over the same period. Its trend is characterised by a gradual reduction after 2003, with some fluctuations, but overall a steady downward trajectory toward 2020–2022.
+
+
+\vspace{20cm}
+## Summary
+
+This report is designed for public health professionals, health board decision-makers, and managers who need a clear picture of how emergency hospitalisation rates differ across Scotland. Its main objective is to present a straightforward visual narrative based on the Scottish Public Health Observatory (ScotPHO) data, helping readers understand where emergency care demand is greatest and how it has evolved in recent years.
+
+The analysis centres on one descriptive research question:
+*Which Scottish Health Board recorded the highest age–sex standardised emergency patient hospitalisation rate in 2022, and how has this rate changed in that same Health Board between 2003 and 2022?*
+
+To address this question, the report draws on the ScotPHO Emergency patient hospitalisations indicator, which provides age-sex standardised rates per 100,000 people for all 14 Health Boards. These data are well-suited for regional comparisons because they follow a consistent methodology and are available across the same timeframe for every Board. Nonetheless, some limitations should be noted. The values are presented as three-year rolling averages, which dampen sudden year-to-year changes—particularly relevant around the COVID-19 period. In addition, the dataset is aggregate-level, meaning we cannot explore individual characteristics or underlying reasons behind the patterns. Finally, the indicator reflects hospital admissions, not total ED activity, so it offers only one part of the broader emergency-care picture.
+
+Following the data science workflow, the report outlines the steps taken to load, clean, and summarise the dataset before presenting two visualisations. The primary visualisation is a bar chart comparing all Health Boards in 2022, which directly identifies the area with the highest hospitalisation rate. Bar graphs are the most practical and widely accepted method for comparing values across distinct groups, making them a suitable choice here. The secondary visualisation, a line chart, traces how the hospitalisation rate has shifted over time within the Board with the highest burden compared to the board with the lowest rate. Line graphs are the standard approach for time-series analysis, as they clearly show long-term trends and shifts in patterns.
+
+This approach has several strengths: it is transparent, easy to interpret, and closely aligned with the research question. Relying on a single, well-structured dataset avoids inconsistencies, and the combination of two complementary graphs allows the analysis to highlight both regional disparities and temporal changes. However, because the focus is descriptive, the report cannot explain the underlying drivers of these differences, nor can it explore how demographic or structural factors contribute to variation between Health Boards.
+
+Overall, this work provides a concise visual summary of emergency hospitalisation trends in Scotland. It highlights notable differences between Health Boards and shows sustained pressure in the area with the highest rate. These findings can help inform planning discussions and support ongoing monitoring of emergency care demand.
+
+
+\vspace{20cm}
+## References
+
+Ajami, S., Ketabi, S., Yarmohammadian, M.H. and Bagherian, H. (2012) ‘Wait time in Emergency Department (ED) processes’, Medical Archives, 66(1), pp. 53–57.
+
+Field, A.P. and Miles, J. (2012) Discovering statistics using R. London: Sage Publications.
+
+Few, S. (2009) Now you see it: Simple visualization techniques for quantitative analysis. Oakland, CA: Analytics Press.
+
+King, E., Dick, S., Hoddinott, P., Malcolm, C., France, E., Kyle, R.G., Aucott, L., Wilson, P. and Turner, S. (2023) ‘Regional variations in short-stay urgent paediatric hospital admissions: a sequential mixed-methods approach exploring differences through data linkage and qualitative interviews’, BMJ Open, 13(9), e072734.
+
+ScotPHO (2025) ScotPHO Profiles Tool. Available at: https://scotland.shinyapps.io/ScotPHO_profiles_tool/
+ (Accessed: 25/11/2025).
+
+Spechbach, H., Geissbühler, A., Guessous, I., Lamy, O., Kherad, O., Luthy, C. and Reny, J.L. (2019) ‘Patients’ time perception in the waiting room of an ambulatory emergency unit: a cross-sectional study’, BMC Emergency Medicine, 19(1), p. 41.

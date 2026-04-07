@@ -1,0 +1,101 @@
+---
+title: "Untitled"
+author: "Boaz"
+date: "2025-01-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading packages
+
+```{r}
+library(tidyverse)
+library(sf)
+library(ggthemes)
+library(rnaturalearth)
+library(showtext)
+library(giscoR)
+library(geodata)
+```
+## Adding fonts
+
+```{r}
+font_add(family = "Arial Rounded Bold", regular ="/Library/Fonts/Supplemental/Arial Rounded Bold.ttf")
+showtext_auto()
+```
+
+## Load the dataset from the rnaturalearth package
+
+```{r}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+view(world)
+glimpse(world)
+```
+
+
+## Plotting the data
+
+Let's plot all countries by income_grp
+```{r}
+world %>% 
+    ggplot(aes(fill = income_grp)) +
+    geom_sf() +
+    scale_fill_viridis_d() +
+    theme_map()
+```
+Let's plot African countries by population size
+
+```{r}
+world %>% 
+    filter(region_un == "Africa") %>% 
+    ggplot(aes(fill = pop_est/1e6)) +
+    geom_sf(color = "white",
+            lwd = 0.3) +
+    theme_map() +
+    labs(title = "Africa by population size",
+         fill = "Population\n(millions)") +
+    theme(legend.position = "top",
+          legend.key.width = unit(1.4, "cm"),
+          legend.text = element_text(size = 9),
+          legend.title = element_text(size = 13,
+                                      family = "Arial Rounded Bold"),
+          plot.title = element_text(size = 22,
+                                    color = "#4682B4",
+                                    family = "Arial Rounded Bold",
+                                    face = "bold"))
+
+
+```
+Let's try to plot a country
+
+```{r}
+cod <- gisco_get_nuts(country = "united kingdom")
+plot(st_geometry(cod))
+
+gisco_get_nuts(country = "cod", nuts_level = 3)
+
+
+drc_provinces <- geodata::gadm(country = "COD", level = 2, path = tempdir())
+# Read the data into an sf object
+drc_provinces_sf <- st_read(drc_provinces)
+
+geodata::gadm(country = "COD", level = 1, path = tempdir()) %>% plot()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,10 +1,11 @@
 ---
-title: 'Trends and Variations in Emergency Department Activity Across Scottish Health Boards (2015–2023):
+title: 'Trends and Variations in Emergency Department Activity Across Scottish Health Boards (2015–2023):'
 author: "Boaz Baliesima Baliejukia"
 date: "2024-11-24"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
+
 ---
 
 ```{r setup, include=FALSE}
